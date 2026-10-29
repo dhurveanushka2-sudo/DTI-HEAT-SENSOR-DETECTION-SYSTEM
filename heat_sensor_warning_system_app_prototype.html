@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heat Sensor Warning System - Prototype</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    keyframes: {
+                        flashRed: {
+                            '0%, 100%': { backgroundColor: 'rgb(220, 38, 38)' },
+                            '50%': { backgroundColor: 'rgb(127, 29, 29)' }
+                        },
+                        alarmPulse: {
+                            '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(239, 68, 68, 0.7)' },
+                            '50%': { transform: 'scale(1.02)', boxShadow: '0 0 0 15px rgba(239, 68, 68, 0)' }
+                        }
+                    },
+                    animation: {
+                        'flash-red': 'flashRed 0.8s infinite',
+                        'alarm-pulse': 'alarmPulse 1.2s infinite'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        /* Screen Transitions */
+        .screen {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+        /* Phone Frame Elevation */
+        .phone-bezel {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 12px #0f172a, 0 0 0 14px #1e293b;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-800 font-sans min-h-screen flex flex-col items-center justify-center p-2 sm:p-6 selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header Description -->
+    <header class="text-center mb-4 max-w-xl">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
+            <i class="fa-solid fa-fire-flame-curved text-amber-500 animate-bounce"></i> Heat Sensor Warning System
+        </h1>
+        <p class="text-slate-400 text-xs sm:text-sm mt-1">Design Thinking Assignment Prototype • Real-time Audio Alarm & Safety Monitor</p>
+    </header>
+
+    <!-- Phone Simulator Frame -->
+    <main class="w-full max-w-[390px] h-[790px] bg-slate-100 rounded-[48px] phone-bezel relative overflow-hidden flex flex-col justify-between border-4 border-slate-900 shadow-2xl">
+        
+        <!-- Status Bar -->
+        <div class="bg-slate-950 text-white px-6 pt-3 pb-2 flex justify-between items-center text-xs font-medium z-50 select-none">
+            <span id="statusBarTime">09:41</span>
+            <!-- Dynamic Island Notch -->
+            <div class="w-20 h-4 bg-black rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-2"></div>
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-wifi text-[10px]"></i>
+                <i class="fa-solid fa-signal text-[10px]"></i>
+                <i class="fa-solid fa-battery-three-quarters text-xs"></i>
+            </div>
+        </div>
+
+        <!-- Toast Notification Popover -->
+        <div id="toast" class="absolute top-12 left-4 right-4 z-50 transform -translate-y-20 opacity-0 transition-all duration-300 ease-out pointer-events-none">
+            <div id="toastContent" class="p-3.5 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-semibold text-white bg-slate-800 border border-slate-700">
+                <i id="toastIcon" class="fa-solid fa-circle-info"></i>
+                <span id="toastMessage">Notification message</span>
+            </div>
+        </div>
+
+        <!-- Main View Router Container -->
+        <div class="relative flex-1 overflow-hidden bg-slate-50">
+
+            <!-- 1. LOGIN SCREEN -->
+            <section id="loginScreen" class="screen absolute inset-0 p-6 flex flex-col justify-between overflow-y-auto custom-scroll z-30 bg-slate-50">
+                <div class="my-auto py-4">
+                    <div class="text-center mb-8">
+                        <div class="w-20 h-20 bg-gradient-to-tr from-indigo-600 to-blue-500 text-white rounded-3xl flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/30 mb-4 transform hover:scale-105 transition-transform">
+                            <i class="fa-solid fa-temperature-high text-3xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-slate-800">Heat Monitor</h2>
+                        <p class="text-xs text-slate-500 mt-1">Smart Charging & Overheat Alert System</p>
+                    </div>
+
+                    <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wider">Username</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                                    <i class="fa-solid fa-user text-sm"></i>
+                                </span>
+                                <input type="text" id="usernameInput" value="admin" required
+                                    class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                                    placeholder="Enter username">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wider">Password</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                                    <i class="fa-solid fa-lock text-sm"></i>
+                                </span>
+                                <input type="password" id="passwordInput" value="admin123" required
+                                    class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                                    placeholder="Enter password">
+                            </div>
+                        </div>
+
+                        <div id="loginError" class="hidden p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-600 font-medium">
+                            <i class="fa-solid fa-circle-exclamation text-red-500"></i>
+                            <span>Invalid username or password!</span>
+                        </div>
+
+                        <button type="submit" 
+                            class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2">
+                            <span>LOGIN</span>
+                            <i class="fa-solid fa-arrow-right text-xs"></i>
+                        </button>
+                    </form>
+
+                    <div class="mt-6 p-3 bg-indigo-50/80 rounded-xl border border-indigo-100 text-center">
+                        <p class="text-[11px] text-indigo-700"><strong>Default Credentials:</strong> admin / admin123</p>
+                    </div>
+                </div>
+
+                <p class="text-center text-[10px] text-slate-400">Assignment 9 • Prototype Development</p>
+            </section>
+
+
+            <!-- 2. DASHBOARD SCREEN -->
+            <section id="dashboardScreen" class="screen absolute inset-0 p-5 flex flex-col justify-between overflow-y-auto custom-scroll opacity-0 pointer-events-none z-20 transition-all duration-300">
+                <!-- Header -->
+                <div class="flex items-center justify-between border-b border-slate-200/80 pb-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">Dashboard</h2>
+                        <p class="text-[11px] text-slate-500 flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping"></span> Live Sensor Active
+                        </p>
+                    </div>
+                    <button onclick="handleLogout()" class="px-3 py-1.5 bg-slate-200/80 hover:bg-slate-300 active:scale-95 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    </button>
+                </div>
+
+                <!-- Main Heat Warning Status Card -->
+                <div id="statusCard" class="my-3 p-6 rounded-3xl text-center text-white shadow-xl transition-all duration-500 transform flex flex-col items-center justify-center min-h-[220px] relative overflow-hidden bg-emerald-600">
+                    
+                    <div id="alertFlashOverlay" class="hidden absolute inset-0 bg-red-600 animate-flash-red -z-10"></div>
+
+                    <!-- Temperature Display -->
+                    <div class="flex items-baseline justify-center font-black tracking-tight drop-shadow-md">
+                        <span id="tempValue" class="text-6xl">32</span>
+                        <span class="text-3xl font-bold ml-1">°C</span>
+                    </div>
+
+                    <!-- Accessibility / Colorblind Status Badge -->
+                    <div id="statusBadge" class="mt-3 px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full flex items-center gap-2 border border-white/30 text-sm font-extrabold tracking-wide uppercase shadow-sm">
+                        <i id="statusIcon" class="fa-solid fa-check-circle text-white"></i>
+                        <span id="statusText">✓ SAFE</span>
+                    </div>
+
+                    <p id="statusDesc" class="mt-3 text-xs sm:text-sm font-medium opacity-90 max-w-[240px]">
+                        Temperature is normal. Safe to sleep!
+                    </p>
+                </div>
+
+                <!-- PROMINENT MUTE / SILENCE ALARM BUTTON (Appears when Alarm is Active) -->
+                <div id="alarmControlBanner" class="hidden my-1">
+                    <button id="silenceAlarmBtn" onclick="silenceAlarm()" 
+                        class="w-full py-3.5 px-4 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-2xl font-black text-xs shadow-xl shadow-red-600/40 animate-alarm-pulse flex items-center justify-center gap-2 border-2 border-white">
+                        <i class="fa-solid fa-volume-xmark text-lg"></i>
+                        <span class="tracking-wider">SILENCE / STOP ALARM</span>
+                    </button>
+                </div>
+
+                <!-- Sensor Simulator Slider -->
+                <div class="my-2 p-3 bg-indigo-50/90 rounded-2xl border border-indigo-100">
+                    <div class="flex justify-between items-center mb-1">
+                        <label for="tempSlider" class="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                            <i class="fa-solid fa-sliders text-indigo-600"></i> Test Temperature Simulator:
+                        </label>
+                        <span id="sliderValueText" class="text-xs font-black text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-lg border border-indigo-200">32°C</span>
+                    </div>
+                    <input type="range" id="tempSlider" min="20" max="90" value="32" oninput="updateTemperature(this.value)"
+                        class="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    
+                    <!-- Quick Preset Buttons -->
+                    <div class="grid grid-cols-3 gap-1.5 mt-2">
+                        <button onclick="setPresetTemp(32)" class="py-1 px-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-shield text-[9px]"></i> 32°C Safe
+                        </button>
+                        <button onclick="setPresetTemp(50)" class="py-1 px-2 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> 50°C Caution
+                        </button>
+                        <button onclick="setPresetTemp(75)" class="py-1 px-2 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-fire text-[9px]"></i> 75°C Danger
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Limits Legend -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current Threshold Limits</p>
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="flex items-center gap-1.5 font-medium text-slate-700">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> GREEN (&lt; <span id="legendYellowVal">40</span>°C)
+                        </span>
+                        <span class="font-bold text-emerald-600">✓ SAFE</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="flex items-center gap-1.5 font-medium text-slate-700">
+                            <span class="w-2 h-2 rounded-full bg-amber-500"></span> YELLOW (<span id="legendYellowVal2">40</span> - <span id="legendRedVal">60</span>°C)
+                        </span>
+                        <span class="font-bold text-amber-600">⚠ CAUTION</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="flex items-center gap-1.5 font-medium text-slate-700">
+                            <span class="w-2 h-2 rounded-full bg-red-500"></span> RED (&gt; <span id="legendRedVal2">60</span>°C)
+                        </span>
+                        <span class="font-bold text-red-600">! DANGER</span>
+                    </div>
+                </div>
+
+                <!-- Navigation Actions -->
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <button onclick="navigateTo('historyScreen')" 
+                        class="py-3 px-4 bg-slate-800 hover:bg-slate-900 active:scale-95 text-white rounded-xl font-semibold text-xs shadow-md transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> History
+                    </button>
+                    <button onclick="navigateTo('settingsScreen')" 
+                        class="py-3 px-4 bg-slate-800 hover:bg-slate-900 active:scale-95 text-white rounded-xl font-semibold text-xs shadow-md transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-gear text-indigo-400"></i> Settings
+                    </button>
+                </div>
+            </section>
+
+
+            <!-- 3. HISTORY SCREEN -->
+            <section id="historyScreen" class="screen absolute inset-0 p-5 flex flex-col justify-between overflow-y-auto custom-scroll opacity-0 pointer-events-none z-10 transition-all duration-300 bg-slate-50">
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-200/80 pb-3 mb-4">
+                        <div class="flex items-center gap-2">
+                            <button onclick="navigateTo('dashboardScreen')" class="w-8 h-8 rounded-full bg-slate-200/80 hover:bg-slate-300 flex items-center justify-center text-slate-700 transition-all">
+                                <i class="fa-solid fa-chevron-left text-xs"></i>
+                            </button>
+                            <h2 class="text-lg font-bold text-slate-800">Heat History Log</h2>
+                        </div>
+                        <button onclick="clearHistory()" class="text-[11px] font-semibold text-red-500 hover:text-red-700">Clear</button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200/80">
+                                    <th class="py-2.5 px-3">Time</th>
+                                    <th class="py-2.5 px-3">Temp</th>
+                                    <th class="py-2.5 px-3 text-right">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody" class="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                                <!-- Dynamic entries -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-200/80">
+                    <button onclick="navigateTo('dashboardScreen')" 
+                        class="w-full py-3 bg-slate-800 hover:bg-slate-900 active:scale-95 text-white rounded-xl font-bold text-xs transition-all shadow-md">
+                        Back to Dashboard
+                    </button>
+                </div>
+            </section>
+
+
+            <!-- 4. SETTINGS SCREEN -->
+            <section id="settingsScreen" class="screen absolute inset-0 p-5 flex flex-col justify-between overflow-y-auto custom-scroll opacity-0 pointer-events-none z-10 transition-all duration-300 bg-slate-50">
+                <div>
+                    <div class="flex items-center gap-2 border-b border-slate-200/80 pb-3 mb-4">
+                        <button onclick="navigateTo('dashboardScreen')" class="w-8 h-8 rounded-full bg-slate-200/80 hover:bg-slate-300 flex items-center justify-center text-slate-700 transition-all">
+                            <i class="fa-solid fa-chevron-left text-xs"></i>
+                        </button>
+                        <h2 class="text-lg font-bold text-slate-800">Threshold Settings</h2>
+                    </div>
+
+                    <div class="space-y-4">
+                        <!-- Yellow Threshold -->
+                        <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+                            <label class="block text-xs font-bold text-amber-600 mb-1 flex items-center justify-between">
+                                <span>Yellow Warning Above (°C)</span>
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </label>
+                            <input type="number" id="yellowThresholdInput" value="40" min="10" max="100"
+                                class="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none">
+                            <p class="text-[10px] text-slate-400 mt-1">Triggers Yellow CAUTION alert when reached.</p>
+                        </div>
+
+                        <!-- Red Threshold -->
+                        <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+                            <label class="block text-xs font-bold text-red-600 mb-1 flex items-center justify-between">
+                                <span>Red Warning Above (°C)</span>
+                                <i class="fa-solid fa-circle-radiation"></i>
+                            </label>
+                            <input type="number" id="redThresholdInput" value="60" min="10" max="100"
+                                class="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-red-500 outline-none">
+                            <p class="text-[10px] text-slate-400 mt-1">Triggers Red ! DANGER audio buzzer and siren.</p>
+                        </div>
+
+                        <!-- Error Message Validation -->
+                        <div id="settingsError" class="hidden p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-xs text-red-600 font-semibold">
+                            <i class="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
+                            <span id="settingsErrorText">Red limit must be higher than yellow limit!</span>
+                        </div>
+
+                        <!-- Toggles -->
+                        <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-bold text-slate-800">Audio Buzzer Alarm</p>
+                                    <p class="text-[10px] text-slate-400">Synthesizer sound on RED status</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="buzzerToggle" checked class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+
+                            <hr class="border-slate-100">
+
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-bold text-slate-800">Push Notifications</p>
+                                    <p class="text-[10px] text-slate-400">Show visual alert popups</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="notificationToggle" checked class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2 mt-4">
+                    <button onclick="saveSettings()" 
+                        class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> SAVE SETTINGS
+                    </button>
+                    <button onclick="navigateTo('dashboardScreen')" 
+                        class="w-full py-2.5 bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-700 rounded-xl font-bold text-xs transition-all">
+                        Back
+                    </button>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Home Indicator Notch -->
+        <div class="bg-slate-950 py-2 flex justify-center items-center z-50">
+            <div class="w-32 h-1 bg-slate-600 rounded-full"></div>
+        </div>
+
+    </main>
+
+    <!-- App State & Synthesizer Logic -->
+    <script>
+        // Global State
+        const state = {
+            yellowLimit: 40,
+            redLimit: 60,
+            currentTemp: 32,
+            buzzerEnabled: true,
+            notificationsEnabled: true,
+            isLoggedIn: false,
+            isSilenced: false,
+            audioCtx: null,
+            alarmInterval: null,
+            history: [
+                { time: '10:00', temp: 28, status: 'GREEN', text: '✓ SAFE' },
+                { time: '10:05', temp: 45, status: 'YELLOW', text: '⚠ CAUTION' },
+                { time: '10:10', temp: 58, status: 'YELLOW', text: '⚠ CAUTION' },
+                { time: '10:15', temp: 66, status: 'RED', text: '! DANGER' },
+                { time: '10:20', temp: 72, status: 'RED', text: '! DANGER' },
+                { time: '10:25', temp: 41, status: 'YELLOW', text: '⚠ CAUTION' }
+            ]
+        };
+
+        // Real-time Clock
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('statusBarTime').textContent = `${hours}:${minutes}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Screen Navigation
+        function navigateTo(screenId) {
+            const screens = ['loginScreen', 'dashboardScreen', 'historyScreen', 'settingsScreen'];
+            screens.forEach(id => {
+                const el = document.getElementById(id);
+                if (id === screenId) {
+                    el.classList.remove('opacity-0', 'pointer-events-none', 'z-10');
+                    el.classList.add('opacity-100', 'z-30');
+                } else {
+                    el.classList.add('opacity-0', 'pointer-events-none', 'z-10');
+                    el.classList.remove('opacity-100', 'z-30', 'z-20');
+                }
+            });
+
+            if (screenId === 'historyScreen') {
+                renderHistoryTable();
+            }
+        }
+
+        // Login Handler
+        function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('usernameInput').value.trim();
+            const pass = document.getElementById('passwordInput').value.trim();
+            const errorEl = document.getElementById('loginError');
+
+            if (user === 'admin' && pass === 'admin123') {
+                errorEl.classList.add('hidden');
+                state.isLoggedIn = true;
+                showToast('Login successful!', 'success');
+                navigateTo('dashboardScreen');
+                updateTemperature(state.currentTemp);
+            } else {
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        // Logout Handler
+        function handleLogout() {
+            state.isLoggedIn = false;
+            stopAudioAlarm();
+            showToast('Logged out', 'info');
+            navigateTo('loginScreen');
+        }
+
+        // Preset Temperature Helper
+        function setPresetTemp(val) {
+            document.getElementById('tempSlider').value = val;
+            updateTemperature(val);
+        }
+
+        // Update Temperature Evaluation & Trigger Alarm
+        function updateTemperature(val) {
+            const temp = parseInt(val, 10);
+            state.currentTemp = temp;
+            document.getElementById('tempValue').textContent = temp;
+            document.getElementById('sliderValueText').textContent = `${temp}°C`;
+
+            const card = document.getElementById('statusCard');
+            const icon = document.getElementById('statusIcon');
+            const statusText = document.getElementById('statusText');
+            const statusDesc = document.getElementById('statusDesc');
+            const overlay = document.getElementById('alertFlashOverlay');
+            const alarmBanner = document.getElementById('alarmControlBanner');
+
+            let currentStatus = '';
+            let labelText = '';
+
+            if (temp < state.yellowLimit) {
+                // GREEN / SAFE
+                currentStatus = 'GREEN';
+                labelText = '✓ SAFE';
+                card.className = "my-3 p-6 rounded-3xl text-center text-white shadow-xl transition-all duration-500 transform flex flex-col items-center justify-center min-h-[220px] relative overflow-hidden bg-emerald-600 shadow-emerald-500/30";
+                icon.className = "fa-solid fa-circle-check text-emerald-200";
+                statusText.textContent = "✓ SAFE";
+                statusDesc.textContent = "Temperature is normal. Safe to sleep!";
+                overlay.classList.add('hidden');
+                alarmBanner.classList.add('hidden');
+                state.isSilenced = false;
+                stopAudioAlarm();
+            } else if (temp >= state.yellowLimit && temp < state.redLimit) {
+                // YELLOW / CAUTION
+                currentStatus = 'YELLOW';
+                labelText = '⚠ CAUTION';
+                card.className = "my-3 p-6 rounded-3xl text-center text-slate-900 shadow-xl transition-all duration-500 transform flex flex-col items-center justify-center min-h-[220px] relative overflow-hidden bg-amber-400 shadow-amber-500/30";
+                icon.className = "fa-solid fa-triangle-exclamation text-slate-900";
+                statusText.textContent = "⚠ CAUTION";
+                statusDesc.textContent = "Warning: Phone is getting warm! Be careful.";
+                overlay.classList.add('hidden');
+                alarmBanner.classList.add('hidden');
+                state.isSilenced = false;
+                stopAudioAlarm();
+            } else {
+                // RED / DANGER
+                currentStatus = 'RED';
+                labelText = '! DANGER';
+                card.className = "my-3 p-6 rounded-3xl text-center text-white shadow-xl transition-all duration-500 transform flex flex-col items-center justify-center min-h-[220px] relative overflow-hidden bg-red-600 shadow-red-500/40 animate-pulse";
+                icon.className = "fa-solid fa-triangle-exclamation text-white animate-bounce";
+                statusText.textContent = "! DANGER";
+                statusDesc.textContent = "OVERHEAT ALERT! Take immediate action & unplug charger!";
+                overlay.classList.remove('hidden');
+
+                if (state.buzzerEnabled && !state.isSilenced) {
+                    alarmBanner.classList.remove('hidden');
+                    startAudioAlarm();
+                } else if (state.isSilenced) {
+                    alarmBanner.classList.remove('hidden');
+                    document.getElementById('silenceAlarmBtn').className = "w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-900 text-slate-300 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border border-slate-700";
+                    document.getElementById('silenceAlarmBtn').innerHTML = `<i class="fa-solid fa-volume-xmark"></i> <span>ALARM SILENCED</span>`;
+                }
+            }
+
+            logTemperatureEntry(temp, currentStatus, labelText);
+        }
+
+        // Web Audio API Alarm Synthesizer
+        function startAudioAlarm() {
+            if (state.alarmInterval) return; // Already running
+
+            try {
+                if (!state.audioCtx) {
+                    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                if (state.audioCtx.state === 'suspended') {
+                    state.audioCtx.resume();
+                }
+
+                // Repeated Dual Tone Warning Alarm Sound
+                state.alarmInterval = setInterval(() => {
+                    if (!state.buzzerEnabled || state.isSilenced) return;
+
+                    const now = state.audioCtx.currentTime;
+                    const osc = state.audioCtx.createOscillator();
+                    const gain = state.audioCtx.createGain();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(880, now); // A5 note
+                    osc.frequency.exponentialRampToValueAtTime(440, now + 0.2); // Drop to A4 note
+                    
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(state.audioCtx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                }, 350);
+
+            } catch (e) {
+                console.log('Audio autoplay policy restriction or unsupported context');
+            }
+        }
+
+        function stopAudioAlarm() {
+            if (state.alarmInterval) {
+                clearInterval(state.alarmInterval);
+                state.alarmInterval = null;
+            }
+        }
+
+        // Silence / Stop Alarm Handler
+        function silenceAlarm() {
+            state.isSilenced = true;
+            stopAudioAlarm();
+            showToast('Alarm silenced', 'info');
+            updateTemperature(state.currentTemp);
+        }
+
+        // Save Settings Handler with Input Validation
+        function saveSettings() {
+            const yellowInput = parseInt(document.getElementById('yellowThresholdInput').value, 10);
+            const redInput = parseInt(document.getElementById('redThresholdInput').value, 10);
+            const errorEl = document.getElementById('settingsError');
+
+            // Validation check: Red limit MUST be higher than yellow limit
+            if (redInput <= yellowInput) {
+                errorEl.classList.remove('hidden');
+                document.getElementById('settingsErrorText').textContent = "Red limit must be higher than yellow limit!";
+                return;
+            }
+
+            errorEl.classList.add('hidden');
+            state.yellowLimit = yellowInput;
+            state.redLimit = redInput;
+            state.buzzerEnabled = document.getElementById('buzzerToggle').checked;
+            state.notificationsEnabled = document.getElementById('notificationToggle').checked;
+
+            // Update Legend UI
+            document.getElementById('legendYellowVal').textContent = yellowInput;
+            document.getElementById('legendYellowVal2').textContent = yellowInput;
+            document.getElementById('legendRedVal').textContent = redInput;
+            document.getElementById('legendRedVal2').textContent = redInput;
+
+            showToast('Settings saved successfully!', 'success');
+            
+            // Re-evaluate current temperature against new limits
+            state.isSilenced = false;
+            updateTemperature(state.currentTemp);
+
+            setTimeout(() => {
+                navigateTo('dashboardScreen');
+            }, 600);
+        }
+
+        // History Logging Logic
+        function logTemperatureEntry(temp, status, text) {
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
+            const lastLog = state.history[0];
+            if (lastLog && lastLog.temp === temp && lastLog.status === status) return;
+
+            state.history.unshift({ time: timeStr, temp, status, text });
+            if (state.history.length > 20) state.history.pop();
+        }
+
+        function renderHistoryTable() {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
+
+            state.history.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors";
+
+                let badgeClass = '';
+
+                if (item.status === 'GREEN') {
+                    badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                } else if (item.status === 'YELLOW') {
+                    badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
+                } else {
+                    badgeClass = 'bg-red-100 text-red-800 border-red-300 font-bold';
+                }
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 text-slate-500 font-mono">${item.time}</td>
+                    <td class="py-2.5 px-3 font-bold text-slate-800">${item.temp}°C</td>
+                    <td class="py-2.5 px-3 text-right">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}">
+                            ${item.text}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function clearHistory() {
+            state.history = [];
+            renderHistoryTable();
+            showToast('History log cleared', 'info');
+        }
+
+        // Toast Messages
+        function showToast(msg, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastContent = document.getElementById('toastContent');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMessage.textContent = msg;
+
+            if (type === 'success') {
+                toastContent.className = "p-3.5 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-semibold text-white bg-emerald-600 border border-emerald-500";
+                toastIcon.className = "fa-solid fa-circle-check";
+            } else if (type === 'error') {
+                toastContent.className = "p-3.5 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-semibold text-white bg-red-600 border border-red-500";
+                toastIcon.className = "fa-solid fa-circle-xmark";
+            } else {
+                toastContent.className = "p-3.5 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-semibold text-white bg-slate-800 border border-slate-700";
+                toastIcon.className = "fa-solid fa-circle-info";
+            }
+
+            toast.classList.remove('transform', '-translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('transform', '-translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
